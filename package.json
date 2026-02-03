@@ -1,0 +1,37 @@
+{
+  "name": "edify",
+  "version": "0.1.0",
+  "description": "CLI tool to import/export YAML configurations to Dify",
+  "main": "dist/index.cjs",
+  "bin": {
+    "edify": "./dist/index.cjs"
+  },
+  "files": [
+    "dist",
+    "extension"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "dify",
+    "cli",
+    "yaml",
+    "import",
+    "export",
+    "workflow"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "commander": "^14",
+    "yaml": "^2"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "esbuild": "^0.27",
+    "typescript": "^5"
+  }
+}
