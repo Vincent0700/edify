@@ -65,11 +65,14 @@ export class Dify {
       throw new Error(`API Error (${res.status}): ${msg}`);
     }
 
+    const txt = await res.text();
+    if (!txt) return {} as T;
+
     const ct = res.headers.get("Content-Type") || "";
     if (ct.includes("application/json")) {
-      return res.json();
+      return JSON.parse(txt);
     }
-    return res.text() as unknown as T;
+    return txt as unknown as T;
   }
 
   /**

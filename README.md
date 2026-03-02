@@ -14,8 +14,8 @@ npm install -g edify
 # 1. Set Dify URL (default: https://cloud.dify.ai)
 edify config set url https://your-dify-instance.com
 
-# 2. Login via browser extension
-edify login
+# 2. Login with email/password
+edify login --email admin@example.com
 
 # 3. List all apps
 edify list
@@ -32,7 +32,10 @@ edify import workflow.yaml
 ### Authentication
 
 ```bash
-# Login to Dify (requires browser extension)
+# Login with email and password (interactive password prompt)
+edify login --email user@example.com
+
+# Login via browser extension (no flags)
 edify login
 
 # Logout and clear credentials
@@ -43,7 +46,7 @@ edify logout
 
 ```bash
 # Show current configuration
-edify config show
+edify config
 
 # Set Dify instance URL
 edify config set url https://your-dify-instance.com
@@ -91,27 +94,53 @@ Example `.difyrc`:
 }
 ```
 
-## Browser Extension Setup
+## Login Methods
 
-The `edify login` command requires a browser extension to capture authentication tokens from Dify.
+### Email/Password
 
-### Installation
+```bash
+# Interactive — prompts for password (masked)
+edify login --email user@example.com
+
+# Non-interactive — password via flag
+edify login --email user@example.com --password secret
+
+# Non-interactive — via environment variables
+export DIFY_BASE_URL=https://your-dify-instance.com
+export DIFY_EMAIL=user@example.com
+export DIFY_PASSWORD=secret
+edify login
+```
+
+Precedence: CLI flags / config file > environment variables > interactive prompt.
+
+| Setting | CLI / Config | Env var |
+|---------|-------------|---------|
+| Base URL | `edify config set url` | `DIFY_BASE_URL` |
+| Email | `--email` | `DIFY_EMAIL` |
+| Password | `--password` | `DIFY_PASSWORD` |
+
+### Browser Extension
+
+If you prefer cookie-based auth or email/password login is unavailable:
+
+```bash
+edify login
+```
+
+This starts a local server and opens Dify in your browser. A Chrome extension captures the authentication tokens automatically.
+
+#### Extension Setup
 
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
 4. Select the `extension` folder from this package
 
-### Usage
-
-1. Run `edify login` in terminal
-2. Login to Dify in your browser
-3. The extension will automatically capture and send tokens to the CLI
-
 ## Requirements
 
 - Node.js >= 18.0.0
-- Chrome browser (for login extension)
+- Chrome browser (only for browser extension login)
 
 ## License
 

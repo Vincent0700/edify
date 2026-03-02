@@ -13,19 +13,35 @@ import type { EnvConfig } from "./types.js";
 const cli = new Command();
 
 cli
-  .name("dify")
+  .name("edify")
   .description("Import/export YAML configurations to Dify")
   .version("0.1.0");
 
 // login
 cli
   .command("login")
-  .description("Login via browser extension")
-  .action(async () => {
+  .description("Login via email/password or browser extension")
+  .option("--email <email>", "Email address (env: DIFY_EMAIL)")
+  .option("--password <password>", "Password (env: DIFY_PASSWORD)")
+  .action(async (opts: { email?: string; password?: string }) => {
     const cfg = Config.load();
     try {
-      const auth = new Auth(cfg.url);
-      const tokens = await auth.run();
+      let tokens;
+      const email = opts.email || process.env.DIFY_EMAIL;
+      const pw = opts.password || process.env.DIFY_PASSWORD;
+
+      if (email) {
+        const password = pw || await prompt("Password: ");
+        if (!password) {
+          console.error("❌ Password cannot be empty");
+          process.exit(1);
+        }
+        tokens = await Auth.password(cfg.url, email, password);
+      } else {
+        const auth = new Auth(cfg.url);
+        tokens = await auth.run();
+      }
+
       Config.auth(tokens);
       console.log("✅ Authenticated");
       process.exit(0);
@@ -45,15 +61,15 @@ cli
   });
 
 // config
-cli
+const configCmd = cli
   .command("config")
   .description("Show or modify config")
   .action(() => {
     Config.show(Config.load());
   });
 
-cli
-  .command("config:set <key> <value>")
+configCmd
+  .command("set <key> <value>")
   .description("Set config (url)")
   .action((key: string, val: string) => {
     if (key === "url") {
@@ -232,22 +248,71 @@ cli
   });
 const need = (cfg: EnvConfig): void => {
   if (!Config.ok(cfg)) {
-    console.error("❌ Not logged in. Run 'dify login' first.");
+    console.error("❌ Not logged in. Run 'edify login' first.");
     process.exit(1);
   }
 };
 
-const ask = (prompt: string): Promise<boolean> =>
+const ask = (msg: string): Promise<boolean> =>
   new Promise((resolve) => {
     const rl = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
-    rl.question(prompt, (ans) => {
+    rl.question(msg, (ans) => {
       rl.close();
       const s = ans.trim().toLowerCase();
       resolve(s === "y" || s === "yes");
     });
   });
+
+const prompt = (msg: string): Promise<string> => {
+  const stdin = process.stdin;
+
+  // Non-TTY (piped): read line directly
+  if (!stdin.isTTY) {
+    return new Promise((resolve) => {
+      const rl = createInterface({ input: stdin });
+      process.stdout.write(msg);
+      rl.once("line", (line) => {
+        rl.close();
+        resolve(line);
+      });
+    });
+  }
+
+  // TTY: raw mode with masked input
+  return new Promise((resolve) => {
+    process.stdout.write(msg);
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode(true);
+
+    let input = "";
+    const onData = (ch: Buffer) => {
+      const c = ch.toString();
+      if (c === "\n" || c === "\r") {
+        stdin.setRawMode(wasRaw ?? false);
+        stdin.removeListener("data", onData);
+        stdin.pause();
+        process.stdout.write("\n");
+        resolve(input);
+      } else if (c === "\x03") {
+        stdin.setRawMode(wasRaw ?? false);
+        process.exit(1);
+      } else if (c === "\x7f" || c === "\b") {
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          process.stdout.write("\b \b");
+        }
+      } else {
+        input += c;
+        process.stdout.write("*");
+      }
+    };
+
+    stdin.resume();
+    stdin.on("data", onData);
+  });
+};
 
 cli.parse();

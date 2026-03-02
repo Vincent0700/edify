@@ -135,6 +135,54 @@ export class Auth {
   }
 
   /**
+   * Login with email/password
+   */
+  static async password(url: string, email: string, password: string): Promise<AuthTokens> {
+    const encoded = Buffer.from(password, "utf-8").toString("base64");
+    const res = await fetch(`${url}/console/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: encoded }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      let msg: string;
+      try {
+        const json = JSON.parse(txt);
+        msg = json.message || json.error || txt;
+      } catch {
+        msg = txt;
+      }
+      throw new Error(`Login failed (${res.status}): ${msg}`);
+    }
+
+    // Tokens are in Set-Cookie headers
+    const cookies = res.headers.getSetCookie();
+    const tokens: Partial<AuthTokens> = {};
+
+    for (const cookie of cookies) {
+      const [pair] = cookie.split(";");
+      const [key, ...rest] = pair.split("=");
+      const value = rest.join("=");
+
+      if (key === "access_token") tokens.accessToken = value;
+      if (key === "refresh_token") tokens.refreshToken = value;
+      if (key === "csrf_token") tokens.csrfToken = value;
+    }
+
+    if (!tokens.accessToken) {
+      throw new Error("Login failed: no access_token in response");
+    }
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken || "",
+      csrfToken: tokens.csrfToken || "",
+    };
+  }
+
+  /**
    * Refresh access token
    */
   static async refresh(url: string, token: string): Promise<AuthTokens | null> {
